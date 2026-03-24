@@ -86,3 +86,19 @@ Per avviare il software in qualsiasi momento basterà:
 L'integrazione di Docker prevede che le cartelle locali e quelle nel container siano mappate. I documenti andranno posizionati nelle cartelle create assieme al codice:
 - **`input/`** (e la sottocartella \`pdf\` all'interno se prevista)
 - **`output/`** (da cui prelevare i risultati)
+
+---
+
+## 🔄 Fase 6: Come Aggiornare l'Applicativo (Nuove Versioni)
+Se in futuro verranno fatti miglioramenti al codice su GitHub, l'operatore ATS può ricevere l'aggiornamento in pochi secondi, senza dover rifare tutto da zero:
+
+1. Apri il **Prompt dei Comandi (`cmd`)**.
+2. Entra nella cartella di installazione:
+   ```cmd
+   cd %USERPROFILE%\Desktop\ocrlocale
+   ```
+3. Digita questo comando per scaricare le ultime modifiche (Pull):
+   ```cmd
+   git pull
+   ```
+4. Se il terminale mostra che dei file sono stati scaricati, chiudi l'app se era aperta e riaprila dal collegamento Desktop. (Se vedi scritto `Already up to date.`, non c'è nulla di nuovo).
