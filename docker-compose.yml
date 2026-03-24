@@ -1,14 +1,26 @@
+version: '3.8'
+
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ocr_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
   ocr-cannabis:
     build: .
     container_name: ocr_prescrizioni
     environment:
-      # Necessario per inviare output grafico su Windows (tramite WSLg o XServer)
       - DISPLAY=${DISPLAY}
     volumes:
-      # Passaggio del socket X11 per la GUI
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      # Mappatura delle directory input/output in modo che l'utente veda i file su Windows
       - ./input:/app/input
       - ./output:/app/output
+    depends_on:
+      - ollama
     network_mode: host
+
+volumes:
+  ollama_data:
