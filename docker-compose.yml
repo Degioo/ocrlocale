@@ -1,0 +1,14 @@
+services:
+  ocr-cannabis:
+    build: .
+    container_name: ocr_prescrizioni
+    environment:
+      # Necessario per inviare output grafico su Windows (tramite WSLg o XServer)
+      - DISPLAY=${DISPLAY}
+    volumes:
+      # Passaggio del socket X11 per la GUI
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Mappatura delle directory input/output in modo che l'utente veda i file su Windows
+      - ./input:/app/input
+      - ./output:/app/output
+    network_mode: host

@@ -1,0 +1,14 @@
+torch
+torchvision
+doctr
+opencv-python
+pillow
+pandas
+openpyxl
+customtkinter
+ttkbootstrap
+llama-cpp-python
+matplotlib
+defusedxml
+deskew
+pypdf

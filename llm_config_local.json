@@ -1,0 +1,12 @@
+{
+  "base_url": "http://localhost:11434/v1",
+  "model": "llama3.2",
+  "api_key": "ollama",
+  "timeout": 120,
+  "local_model_path": null,
+  "options": {
+    "num_ctx": 4096,
+    "temperature": 0
+  },
+  "description": "Modifica 'model' con quello che hai scaricato (es. llama3.2, phi3, mistral). Se usi un file GGUF direttamente, imposta 'local_model_path'."
+}

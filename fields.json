@@ -1,0 +1,30 @@
+{
+  "target_fields": [
+    "BARCODE",
+    "CODICE ESENZIONE",
+    "TESTO PRESCRIZIONE",
+    "Etichetta - Prezzo Rec",
+    "Etichetta - Prezzo Totale",
+    "TOTALE PRESCRIZIONE",
+    "DATA INVIO",
+    "Etichetta - Preparazione",
+    "Etichetta - Ingredienti",
+    "Etichetta - Peso soluzione (g)",
+    "Etichetta - Prezzo Sost",
+    "Etichetta - Prezzo On",
+    "Etichetta - Iva",
+    "Etichetta - THC",
+    "Etichetta - CBD",
+    "Etichetta - Data preparazione",
+    "Etichetta - Data scadenza",
+    "Etichetta - Nome e cognome medico",
+    "Etichetta - Avvertenze",
+    "Etichetta - Codice preparazione",
+    "Etichetta - Nome e cognome o codice paziente",
+    "CODICE FISCALE",
+    "DATA PRESCRIZIONE",
+    "COGNOME E NOME ASSISTITO",
+    "FIRMA MEDICO",
+    "TIMBRO MEDICO"
+  ]
+}
