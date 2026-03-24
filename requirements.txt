@@ -1,6 +1,6 @@
 torch
 torchvision
-doctr
+python-doctr
 opencv-python
 pillow
 pandas
