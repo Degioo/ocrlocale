@@ -8,6 +8,6 @@ echo in esecuzione e configurato per supportare WSL2/WSLg (per la grafica).
 echo.
 
 cd /d "%~dp0"
-docker-compose up --build
+docker compose up --build
 
 pause

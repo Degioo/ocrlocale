@@ -42,9 +42,15 @@ echo Docker e' installato! Procedo con la build...
 echo.
 echo [2/4] Build e Avvio dei Container (OCR + Ollama)...
 cd /d "%~dp0"
-docker-compose up -d --build
+docker compose up -d --build
 if %ERRORLEVEL% NEQ 0 (
-    echo [ERRORE] Impossibile avviare i container. Assicurati che Docker Desktop sia in esecuzione!
+    echo [ERRORE] Impossibile avviare i container.
+    echo ----------------------------------------------------
+    echo HAI APERTO DOCKER DESKTOP?
+    echo Cerca "Docker Desktop" nel menu Start di Windows e aprilo.
+    echo Assicurati che l'icona in basso a destra sia verde (Running).
+    echo Poi riavvia questo script.
+    echo ----------------------------------------------------
     pause
     exit /b 1
 )
