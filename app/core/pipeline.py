@@ -45,6 +45,13 @@ class PipelineRunner(threading.Thread):
         qh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s - %(message)s', datefmt='%H:%M:%S'))
         self.logger.addHandler(qh)
 
+        # Setup persistent file handler
+        output_dir = Path("output")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        fh = logging.FileHandler(output_dir / "esecuzione_log.txt", mode='a', encoding='utf-8')
+        fh.setFormatter(logging.Formatter('======\n%(asctime)s %(levelname)s - %(message)s\n======', datefmt='%Y-%m-%d %H:%M:%S'))
+        self.logger.addHandler(fh)
+
     def stop(self):
         self._stop_event.set()
 

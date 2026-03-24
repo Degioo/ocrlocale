@@ -5,10 +5,17 @@ import logging
 import cv2
 from pathlib import Path
 
+# Assicurati che la cartella output esista
+Path("output").mkdir(parents=True, exist_ok=True)
+
 # Setup simple root logger
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("output/esecuzione_log.txt", mode='a', encoding='utf-8')
+    ]
 )
 logger = logging.getLogger("MainPipeline")
 
