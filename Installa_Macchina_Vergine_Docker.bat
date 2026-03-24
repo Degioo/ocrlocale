@@ -48,7 +48,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo ----------------------------------------------------
     echo HAI APERTO DOCKER DESKTOP?
     echo Cerca "Docker Desktop" nel menu Start di Windows e aprilo.
-    echo Assicurati che l'icona in basso a destra sia verde (Running).
+    echo Assicurati che l'icona in basso a destra sia verde.
     echo Poi riavvia questo script.
     echo ----------------------------------------------------
     pause
