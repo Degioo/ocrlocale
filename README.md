@@ -8,7 +8,11 @@ Applicazione per l'estrazione e il controllo automatizzato dei dati dalle prescr
 - **Ollama:** Installato localmente ed in esecuzione in background per utilizzare l'LLM impostato nel file `llm_config_local.json`.
 
 ## Installazione per Uso Locale (Macchina ATS)
-Per installare automaticamente tutte le dipendenze e creare l'ambiente virtuale sulla macchina di destinazione:
+
+> [!IMPORTANT]  
+> Se stai cercando di installare questo software su una postazione Windows **totalmente vergine** (nessun programma già installato), leggi invece la **[Guida Completa all'Installazione (Macchina ATS Vergine)](INSTALLAZIONE_ATS_VERGINE.md)**.
+
+Per installare automaticamente tutte le dipendenze e creare l'ambiente virtuale partendo dal presupposto di usare Python locale:
 
 1. Eseguire (doppio clic) il file **`Installa_ATS.bat`**.
 2. Lo script effettuerà automaticamente le seguenti operazioni:
