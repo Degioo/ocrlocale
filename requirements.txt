@@ -12,3 +12,4 @@ matplotlib
 defusedxml
 deskew
 pypdf
+pyzbar

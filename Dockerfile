@@ -9,6 +9,7 @@ RUN apt-get update && \
     python3-tk \
     libgl1 \
     libglib2.0-0 \
+    libzbar0 \
     build-essential \
     cmake \
     && rm -rf /var/lib/apt/lists/*
