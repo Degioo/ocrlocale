@@ -197,10 +197,12 @@ def get_parser(api_key=None, base_url=None, model=None, local_model_path=None, t
     import os
     
     default_url = "http://localhost:11434/v1"
-    if os.path.exists('/.dockerenv'):
+    is_docker = os.path.exists('/.dockerenv') or os.environ.get('IS_DOCKER') == '1'
+    
+    if is_docker:
         default_url = "http://ocr_ollama:11434/v1"
-        if base_url and "localhost" in base_url:
-            base_url = base_url.replace("localhost", "ocr_ollama")
+        if base_url:
+            base_url = base_url.replace("localhost", "ocr_ollama").replace("127.0.0.1", "ocr_ollama")
             
     if _parser_instance is None or api_key or base_url or model or local_model_path or timeout:
         _parser_instance = LLMParser(

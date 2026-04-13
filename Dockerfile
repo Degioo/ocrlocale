@@ -1,6 +1,7 @@
 FROM python:3.12-slim
 
 WORKDIR /app
+ENV IS_DOCKER=1
 
 # Necessario OpenCV (libgl1) + pyzbar (libzbar0) + tools per compilare C++
 RUN apt-get update && \
