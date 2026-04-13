@@ -3,11 +3,14 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Necessario per i framework GUI (Tkinter/CustomTkinter) e per OpenCV (libgl1)
+# Build-essential e cmake servono per poter compilare librerie come llama-cpp-python
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     python3-tk \
     libgl1 \
     libglib2.0-0 \
+    build-essential \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
