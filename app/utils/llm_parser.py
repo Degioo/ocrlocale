@@ -194,10 +194,18 @@ _parser_instance = None
 
 def get_parser(api_key=None, base_url=None, model=None, local_model_path=None, timeout=None):
     global _parser_instance
+    import os
+    
+    default_url = "http://localhost:11434/v1"
+    if os.path.exists('/.dockerenv'):
+        default_url = "http://ocr_ollama:11434/v1"
+        if base_url and "localhost" in base_url:
+            base_url = base_url.replace("localhost", "ocr_ollama")
+            
     if _parser_instance is None or api_key or base_url or model or local_model_path or timeout:
         _parser_instance = LLMParser(
             api_key=api_key, 
-            base_url=base_url or "http://localhost:11434/v1", 
+            base_url=base_url or default_url, 
             model=model or "llama3.2",
             local_model_path=local_model_path,
             timeout=timeout or 60

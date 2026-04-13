@@ -30,7 +30,10 @@ def load_settings():
     llm_cfg_path = Path("llm_config_local.json")
     if llm_cfg_path.exists():
         with open(llm_cfg_path, 'r') as f:
-            return json.load(f)
+            cfg = json.load(f)
+            if "localhost" in cfg.get("base_url", "") and os.path.exists('/.dockerenv'):
+                cfg["base_url"] = cfg["base_url"].replace("localhost", "ocr_ollama")
+            return cfg
     # Defaulting to the docker-compose ollama internal network name
     return {"base_url": "http://ocr_ollama:11434/v1", "model": "llama3.2"}
 
