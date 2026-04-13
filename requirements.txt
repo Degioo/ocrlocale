@@ -13,3 +13,4 @@ defusedxml
 deskew
 pypdf
 pyzbar
+requests
