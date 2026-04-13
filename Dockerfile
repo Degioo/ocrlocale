@@ -2,11 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Necessario per i framework GUI (Tkinter/CustomTkinter) e per OpenCV (libgl1)
-# Build-essential e cmake servono per poter compilare librerie come llama-cpp-python
+# Necessario OpenCV (libgl1) + pyzbar (libzbar0) + tools per compilare C++
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    python3-tk \
     libgl1 \
     libglib2.0-0 \
     libzbar0 \
@@ -20,11 +18,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia i sorgenti
 COPY app/ app/
 COPY main.py .
-COPY gui.py .
-# (Eventuali modelli o file json)
+COPY web_app.py .
 COPY fields.json .
 COPY llm_config_local.json .
-COPY Avvia_OCR_Cannabis.bat .
+COPY Avvia_docker.bat .
 
-# Di default, avvia la GUI
-CMD ["python", "gui.py"]
+# Avvia l'interfaccia grafica tramite Streamlit sulla porta 8501
+CMD ["streamlit", "run", "web_app.py", "--server.port=8501", "--server.address=0.0.0.0"]

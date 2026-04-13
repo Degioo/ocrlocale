@@ -12,15 +12,13 @@ services:
   ocr-cannabis:
     build: .
     container_name: ocr_prescrizioni
-    environment:
-      - DISPLAY=${DISPLAY}
+    ports:
+      - "8501:8501"
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ./input:/app/input
       - ./output:/app/output
     depends_on:
       - ollama
-    network_mode: host
 
 volumes:
   ollama_data:
