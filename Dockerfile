@@ -21,7 +21,6 @@ COPY main.py .
 COPY web_app.py .
 COPY fields.json .
 COPY llm_config_local.json .
-COPY Avvia_docker.bat .
 
 # Avvia l'interfaccia grafica tramite Streamlit sulla porta 8501
 CMD ["streamlit", "run", "web_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
