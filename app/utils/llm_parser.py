@@ -200,11 +200,14 @@ Output: solo JSON.
         except Exception as e:
             return {"error": str(e)}
 
-    def extract_fields_from_image(self, image_base64, schema_fields):
+    def extract_fields_from_image(self, image_base64_list, schema_fields):
         """
-        image_base64: Base64 string of the image
+        image_base64_list: List of Base64 strings of the images
         schema_fields: List of field names to extract
         """
+        if not isinstance(image_base64_list, list):
+            image_base64_list = [image_base64_list]
+
         # Nota: per le immagini, il VisionLLM fa estrazione e OCR in un colpo solo. Non si applica la pre-normalizzazione.
         prompt = f"""
 Sei un parser di prescrizioni/etichette di cannabis terapeutica italiane.
@@ -256,7 +259,7 @@ Output: solo JSON.
                 "messages": [{
                     "role": "user", 
                     "content": prompt,
-                    "images": [image_base64]
+                    "images": image_base64_list
                 }],
                 "stream": False,
                 "format": "json",
@@ -266,14 +269,15 @@ Output: solo JSON.
             }
         else:
             url = f"{self.base_url}/chat/completions"
+            content_payload = [{"type": "text", "text": prompt}]
+            for b64 in image_base64_list:
+                content_payload.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
+                
             data = {
                 "model": self.model,
                 "messages": [{
                     "role": "user", 
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
-                    ]
+                    "content": content_payload
                 }],
                 "temperature": 0.0,
                 "response_format": { "type": "json_object" }

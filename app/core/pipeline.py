@@ -171,21 +171,15 @@ class PipelineRunner(threading.Thread):
                     cropped = cropper.crop(deskewed)
                     
                     if self.use_vision:
-                        ocr_data = vision_extractor.extract(deskewed)
+                        # VisionLLM supporta array di immagini: passiamo la pagina interna e il ritaglio ad alta risoluzione!
+                        ocr_data = vision_extractor.extract([deskewed, cropped])
                         mean_conf = 1.0
                     else:
                         self.logger.info("          Running Full Page OCR...")
                         full_text, conf_full = ocr_engine.process_image(deskewed)
                         
-                        self.logger.info("          Running Cropped Label OCR...")
-                        label_text, conf_label = ocr_engine.process_image(cropped)
-                        
-                        mean_conf = (conf_full + conf_label) / 2.0
-                        
-                        combined_text = (
-                            f"--- TESTO INTERA RICETTA (Per Timbri/Firme/ecc) ---\n{full_text}\n\n"
-                            f"--- TESTO ETICHETTA (Per Dati Specifici Farmaco) ---\n{label_text}"
-                        )
+                        mean_conf = conf_full
+                        combined_text = full_text
                         
                         # --- DEBUG: Salva il testo grezzo OCR per permettere al programmatore di ottimizzarlo ---
                         raw_text_path = output_dir / f"{pdf_path.stem}_p{page_num}_raw_ocr.txt"

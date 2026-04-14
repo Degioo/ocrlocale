@@ -118,25 +118,39 @@ class VisionExtractor:
 
         self.fields = config.get("target_fields", default_fields)
 
-    def extract(self, img_array):
-        """Processes a single numpy image array using a Vision LLM."""
-        if img_array is None or img_array.size == 0:
+    def extract(self, img_input):
+        """Processes a single numpy image array or a list of image arrays using a Vision LLM."""
+        if img_input is None:
              return {"error": "Empty image array"}
+             
+        # Normalize to list
+        if not isinstance(img_input, list):
+            img_input = [img_input]
              
         try:
              import cv2
              import base64
              
-             # Convert RGB to BGR for OpenCV encoding
-             bgr_img = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-             success, encoded_image = cv2.imencode('.png', bgr_img)
-             if not success:
-                 return {"error": "Failed to encode image to PNG"}
+             base64_images = []
+             for img_array in img_input:
+                 if img_array is None or img_array.size == 0:
+                     continue
                  
-             image_base64 = base64.b64encode(encoded_image.tobytes()).decode('utf-8')
+                 # Convert RGB to BGR for OpenCV encoding
+                 bgr_img = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+                 success, encoded_image = cv2.imencode('.png', bgr_img)
+                 if not success:
+                     logger.warning("Failed to encode one of the images to PNG")
+                     continue
+                     
+                 image_base64 = base64.b64encode(encoded_image.tobytes()).decode('utf-8')
+                 base64_images.append(image_base64)
              
-             logger.info(f"[*] Calling Vision LLM '{self.parser.model}' for direct image extraction...")
-             return self.parser.extract_fields_from_image(image_base64, self.fields)
+             if not base64_images:
+                 return {"error": "No valid images to process"}
+                 
+             logger.info(f"[*] Calling Vision LLM '{self.parser.model}' with {len(base64_images)} images for direct extraction...")
+             return self.parser.extract_fields_from_image(base64_images, self.fields)
              
         except Exception as e:
              logger.error(f"[!] Vision LLM Extraction Error: {e}")
