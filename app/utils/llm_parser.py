@@ -217,11 +217,20 @@ Regole generali:
 - Se due valori sono possibili, scegli quello più compatibile con il formato atteso del campo.
 
 Regole di estrazione importanti:
-- OCR_CODICE FISCALE: deve sembrare un codice fiscale italiano di 16 caratteri alfanumerici.
-- OCR_COGNOME E NOME ASSISTITO: ignora testi boilerplate come "COGNOME E NOME DELL'ASSISTITO".
-- OCR_Etichetta - THC e OCR_Etichetta - CBD: estrai solo valori chiari come "19%", "0,5%".
-- Prezzi: estrai importi (es. 88,77) mantenendo la virgola, senza €. OCR_*Prezzo*: solo numero con virgola.
+- OCR_CODICE FISCALE: regex compatibile con [A-Z0-9]{{16}}. deve sembrare un codice fiscale italiano di 16 caratteri alfanumerici. Se non trovi un pattern compatibile, null.
+- OCR_COGNOME E NOME ASSISTITO: cerca vicino a parole come "Sig." o nominativo assistito. Non usare codici o date.
+- OCR_Etichetta - Nome e cognome o codice paziente: può essere nome/cognome oppure codice paziente, ma non usare una data o un importo.
+- OCR_Etichetta - THC e OCR_Etichetta - CBD: estrai solo valori puliti come "19%", "0,5%", "22 mg", ecc. Se testo incerto, null.
+- OCR_DATA PRESCRIZIONE, OCR_DATA INVIO, OCR_Etichetta - Data preparazione, OCR_Etichetta - Data scadenza: estrai solo date plausibili. Formato preferito DD/MM/YYYY o DD/MM/YY.
 - OCR_FIRMA MEDICO e OCR_TIMBRO MEDICO: solo "Presente", "Assente" oppure null.
+- OCR_Etichetta - Ingredienti: elenco ingredienti riconoscibili, ripulendo errori OCR evidenti.
+- OCR_TESTO PRESCRIZIONE: ricostruisci il testo prescrittivo dalle righe mediche, senza includere dati della farmacia o avvertenze etichetta.
+- Prezzi: estrai gli importi più plausibili dal contesto etichetta. Mantieni il formato con virgola decimale, senza simbolo €. OCR_*Prezzo*: solo numero con virgola.
+- OCR_Etichetta - Peso soluzione (g): solo numero.
+
+Non fare questi errori:
+- Non estrarre come codice fiscale stringhe tipo "Cod. 327 ABLI n. 134 Prov. VA"
+- Non estrarre come nome paziente valori numerici che sembrano date o codici non etichettati
 
 Output: solo JSON.
 
