@@ -11,6 +11,7 @@ from app.core.preprocessing import PDFProcessor, ImageEnhancer, BarcodeScanner, 
 from app.core.extraction import OCREngine, LLMExtractor, VisionExtractor
 from app.core.excel_matcher import ExcelProcessor
 from app.core.postprocessing import PDFExporter
+from app.core.database import DatabaseManager
 
 # We can create a custom logging handler
 class QueueHandler(logging.Handler):
@@ -197,7 +198,18 @@ class PipelineRunner(threading.Thread):
                         "ocr_data": ocr_data
                     })
                     
-                    self.logger.info(f"          Extraction complete.")
+                    # Salva nel Database locale
+                    db_manager = DatabaseManager()
+                    db_manager.insert_prescription(
+                        original_file=pdf_path.name,
+                        barcode=barcode_str,
+                        page=page_num,
+                        confidence=float(mean_conf),
+                        ocr_data=ocr_data,
+                        image_path=str(img_path)
+                    )
+                    
+                    self.logger.info(f"          Extraction complete and saved to DB.")
                     
             except Exception as e:
                 self.logger.error(f"[!] Critical Error on {pdf_path.name}: {e}")
