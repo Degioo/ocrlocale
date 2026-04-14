@@ -137,18 +137,49 @@ elif st.session_state.page == "processing":
 elif st.session_state.page == "dashboard":
     st.title("🗃️ Dashboard Validazione")
     
-    col1, col2 = st.columns([8, 2])
+    records = db.get_all_prescriptions()
+    
+    col1, col2, col3 = st.columns([6, 2, 2])
+    with col1:
+        st.markdown("Seleziona una ricetta per visualizzarne il documento e approvare i dati.")
     with col2:
+        if records:
+            # Generate Excel strictly from DB
+            from io import BytesIO
+            import pandas as pd
+            
+            flat_records = []
+            for r in records:
+                row_data = {"DB_Status": r["status"], "Original_File": r["original_file"], "Confidence": f"{r['mean_ocr_confidence']*100:.1f}%"}
+                try:
+                    js = json.loads(r["verified_data_json"])
+                    row_data.update(js)
+                except:
+                    pass
+                flat_records.append(row_data)
+                
+            df_export = pd.DataFrame(flat_records)
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df_export.to_excel(writer, index=False, sheet_name='Esportazione DB')
+            excel_data = output.getvalue()
+            
+            st.download_button(
+                label="📥 Esporta in Excel",
+                data=excel_data,
+                file_name=f"export_ats_cannabis.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+            
+    with col3:
         if st.button("⬅️ Torna alla Home", use_container_width=True):
             st.session_state.page = "setup"
             st.rerun()
             
-    records = db.get_all_prescriptions()
     if not records:
         st.info("Nessuna elaborazione presente nel Database.")
     else:
-        st.markdown("Seleziona una ricetta per visualizzarne il documento e approvare i dati.")
-        
         # Display as a table with Action button
         for r in records:
             status_color = "🔴" if r["status"] == "Da Verificare" else "🟢"
