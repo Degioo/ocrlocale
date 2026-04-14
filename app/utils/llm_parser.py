@@ -31,10 +31,13 @@ class LLMParser:
         If a field is not found, use null or an empty string.
         
         IMPORTANT RULES for specific fields:
-        - For "TIMBRO MEDICO": return `true` (boolean) if you find any text that looks like a medical stamp (e.g., doctor name with titles like "Dott.", "Albo dei Medici", VAT numbers, or specialization). Otherwise, return `false`.
-        - For "FIRMA MEDICO": return `true` (boolean) if you find any text or string that suggests the presence of a signature (e.g., scribbles interpreted by OCR as random connected letters, "Firmato", or the doctor's name written by hand). Otherwise, return `false`.
+        - For "TIMBRO MEDICO": return `true` (boolean) if you find any text that looks like a medical stamp. Otherwise, return `false`.
+        - For "FIRMA MEDICO": return `true` (boolean) if you find any text or string that suggests the presence of a signature. Otherwise, return `false`.
         - For "CODICE ESENZIONE": this is usually a short code (e.g., "TDL", "E01", "048"). Be careful to extract it exactly as it appears.
         - For "etichetta - IVA" (or any IVA field): search for the value near the keyword "IV" or "IV:" on the label.
+        - For "TESTO PRESCRIZIONE" or "Prescrizione": extract the main body of the prescription detailing the cannabis preparation (e.g., "CANNABIS FLOS", "BEDROCAN", "OLIO", doses, etc.). Combine all related text.
+        - For "TOTALE PRESCRIZIONE" or "Totale": extract the total monetary cost or price in euros (e.g., 88,77 or 88.77).
+        - For "COGNOME E NOME ASSISTITO" or "Paziente": DO NOT extract boilerplate labels like "COGNOME E NOME DELL'ASSISTITO" or "PRESCRITTO DALLA LEGGE". Only extract the actual handwritten/printed patient name. If it's missing or just a label, return null.
         - Tutte le date (come Data_Preparazione, Scadenza, etc.) DEVONO essere scritte rigorosamente nel formato gg/mm/aaaa.
         
         Fields to extract: {', '.join(schema_fields)}
@@ -120,9 +123,13 @@ class LLMParser:
         If a field is not found, use null or an empty string.
         
         IMPORTANT RULES for specific fields:
-        - For "TIMBRO MEDICO": return `true` (boolean) if you find any text that looks like a medical stamp (e.g., doctor name with titles like "Dott.", "Albo dei Medici", VAT numbers, or specialization). Otherwise, return `false`.
-        - For "FIRMA MEDICO": return `true` (boolean) if you find any text or string that suggests the presence of a signature (e.g., scribbles interpreted by OCR as random connected letters, "Firmato", or the doctor's name written by hand). Otherwise, return `false`.
+        - For "TIMBRO MEDICO": return `true` (boolean) if you find any text that looks like a medical stamp. Otherwise, return `false`.
+        - For "FIRMA MEDICO": return `true` (boolean) if you find any text or string that suggests the presence of a signature. Otherwise, return `false`.
         - For "CODICE ESENZIONE": this is usually a short code (e.g., "TDL", "E01", "048"). Be careful to extract it exactly as it appears.
+        - For "TESTO PRESCRIZIONE" or "Prescrizione": extract the main body of the prescription detailing the cannabis preparation (e.g., "CANNABIS FLOS", "BEDROCAN", "OLIO", doses, etc.). Combine all related text.
+        - For "TOTALE PRESCRIZIONE" or "Totale": extract the total monetary cost or price in euros (e.g., 88,77 or 88.77).
+        - For "COGNOME E NOME ASSISTITO" or "Paziente": DO NOT extract boilerplate labels like "COGNOME E NOME DELL'ASSISTITO" or "PRESCRITTO DALLA LEGGE". Only extract the actual handwritten/printed patient name. If it's missing or just a label, return null.
+        - Tutte le date MUST be extracting in DD/MM/YYYY format.
         
         Fields to extract: {', '.join(schema_fields)}
         """
