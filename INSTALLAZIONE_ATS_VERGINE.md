@@ -89,7 +89,17 @@ L'integrazione di Docker prevede che le cartelle locali e quelle nel container s
 
 ---
 
-## 🔄 Fase 6: Come Aggiornare l'Applicativo (Nuove Versioni)
+## 🌐 Fase 6: Configurazione per Accesso da Intranet (Modalità Server)
+Se desideri che questa macchina ATS agisca da server, permettendo agli altri computer dell'ufficio di accedere all'applicazione tramite il loro browser:
+
+1. Esegui il file **`Abilita_Accesso_Intranet.bat`** (presente nella cartella `ocrlocale`).
+2. Se ti vengono chiesti i permessi di Amministratore (Controllo Account Utente), clicca su **Sì**.
+3. Lo script si occuperà di creare un'eccezione nel Firewall di Windows per la **porta 8501**.
+4. Per accedere dagli altri PC, ti basterà scoprire l'indirizzo IP di questa macchina (es. aprendo il `cmd` e scrivendo `ipconfig`) e condividerlo come link: `http://[INDIRIZZO_IP_MACCHINA]:8501`
+
+---
+
+## 🔄 Fase 7: Come Aggiornare l'Applicativo (Nuove Versioni)
 Se in futuro verranno fatti miglioramenti al codice su GitHub, l'operatore ATS può ricevere l'aggiornamento in pochi secondi, senza dover rifare tutto da zero:
 
 1. Apri il **Prompt dei Comandi (`cmd`)**.
