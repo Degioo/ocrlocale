@@ -187,6 +187,12 @@ class PipelineRunner(threading.Thread):
                             f"--- TESTO ETICHETTA (Per Dati Specifici Farmaco) ---\n{label_text}"
                         )
                         
+                        # --- DEBUG: Salva il testo grezzo OCR per permettere al programmatore di ottimizzarlo ---
+                        raw_text_path = output_dir / f"{pdf_path.stem}_p{page_num}_raw_ocr.txt"
+                        with open(raw_text_path, "w", encoding="utf-8") as rf:
+                            rf.write(combined_text)
+                        # ----------------------------------------------------------------------------------------
+                        
                         ocr_data = llm_extractor.extract(combined_text)
                     
                     results.append({

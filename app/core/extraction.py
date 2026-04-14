@@ -14,8 +14,9 @@ logger = logging.getLogger("Extraction")
 class OCREngine:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"[*] Loading docTR on {self.device}...")
-        self.model = ocr_predictor(pretrained=True)
+        logger.info(f"[*] Loading docTR on {self.device} with PARSeq architecture...")
+        # Using PARSeq for better performance on handwriting/noisy text
+        self.model = ocr_predictor(det_arch='linknet_resnet18', reco_arch='parseq', pretrained=True)
         if self.device.type == "cuda":
              self.model = self.model.cuda()
 
