@@ -6,7 +6,7 @@ echo.
 echo Avvio in corso dei container Docker...
 
 cd /d "%~dp0"
-docker compose up -d
+docker compose up --build -d
 
 echo.
 echo Apre il browser alla pagina locale: http://localhost:8501
