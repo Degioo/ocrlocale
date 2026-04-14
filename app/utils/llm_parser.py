@@ -31,14 +31,16 @@ class LLMParser:
         If a field is not found, use null or an empty string.
         
         IMPORTANT RULES for specific fields:
-        - For "TIMBRO MEDICO": return `true` (boolean) if you find any text that looks like a medical stamp. Otherwise, return `false`.
-        - For "FIRMA MEDICO": return `true` (boolean) if you find any text or string that suggests the presence of a signature. Otherwise, return `false`.
-        - For "CODICE ESENZIONE": this is usually a short code (e.g., "TDL", "E01", "048"). Be careful to extract it exactly as it appears.
-        - For "etichetta - IVA" (or any IVA field): search for the value near the keyword "IV" or "IV:" on the label.
-        - For "TESTO PRESCRIZIONE" or "Prescrizione": extract the main body of the prescription detailing the cannabis preparation (e.g., "CANNABIS FLOS", "BEDROCAN", "OLIO", doses, etc.). Combine all related text.
-        - For "TOTALE PRESCRIZIONE" or "Totale": extract the total monetary cost or price in euros (e.g., 88,77 or 88.77).
-        - For "COGNOME E NOME ASSISTITO" or "Paziente": DO NOT extract boilerplate labels like "COGNOME E NOME DELL'ASSISTITO" or "PRESCRITTO DALLA LEGGE". Only extract the actual handwritten/printed patient name. If it's missing or just a label, return null.
-        - Tutte le date (come Data_Preparazione, Scadenza, etc.) DEVONO essere scritte rigorosamente nel formato gg/mm/aaaa.
+        - "CODICE FISCALE": Must be a 16-character alphanumeric string (e.g. VTLGLI66A71C0040). Find it near 'Sig.' or 'CODICE FISCALE'. Do not ignore it!
+        - "CODICE ESENZIONE": Usually a 3-letter code (e.g. "TDL"). Do NOT mistake it for pharmacy or ASL codes like '327' or 'ASL n. 134'.
+        - "TESTO PRESCRIZIONE": You MUST extract the main scribbled/noisy handwriting block (e.g. "CANNARIS PLOS 1970...", "BeonoCAN", "di OLIVA..."). Do NOT just copy the printed pharmacy label!
+        - "DATA PRESCRIZIONE": Look for numbers like "260423" or similar in the middle, formatting it as "26/04/2023".
+        - "COGNOME E NOME ASSISTITO" or "Nome e cognome paziente": DO NOT extract boilerplate labels like "COGNOME E NOME DELL'ASSISTITO". If the name is blank, return null.
+        - "Etichetta - Nome e cognome medico": Extract specifically the doctor's name (e.g., "Dott. GALATI RANDO VINCENZA"). DO NOT include the patient's codice fiscale inside this field!
+        - "Etichetta - Ingredienti": Find text like "tocoferolo", "olio di oliva", "cannabis flos" located in the receipt section.
+        - "Etichetta - Iva": Look explicitly for a percentage or small amount (e.g., 8,07) near standard boilerplate lines.
+        - "TOTALE PRESCRIZIONE" / "Prezzo": Extract the biggest final amount near the Euro sign (e.g. 88,77).
+        - "TIMBRO MEDICO" / "FIRMA MEDICO": Return strictly boolean `true` or `false` based on text evidence (e.g. titles or signatures).
         
         Fields to extract: {', '.join(schema_fields)}
         
