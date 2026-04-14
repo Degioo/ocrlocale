@@ -26,27 +26,29 @@ class LLMParser:
         schema_fields: List of field names to extract
         """
         prompt = f"""
-        Extract the following fields from the provided document text. 
-        Return ONLY a valid JSON object where keys are the field names.
-        If a field is not found, use null or an empty string.
-        
-        IMPORTANT RULES for specific fields:
-        - "CODICE FISCALE": Must be a 16-character alphanumeric string (e.g. VTLGLI66A71C0040). Find it near 'Sig.' or 'CODICE FISCALE'. Do not ignore it!
-        - "CODICE ESENZIONE": Usually a 3-letter code (e.g. "TDL"). Do NOT mistake it for pharmacy or ASL codes like '327' or 'ASL n. 134'.
-        - "TESTO PRESCRIZIONE": You MUST extract the main scribbled/noisy handwriting block (e.g. "CANNARIS PLOS 1970...", "BeonoCAN", "di OLIVA..."). Do NOT just copy the printed pharmacy label!
-        - "DATA PRESCRIZIONE": Look for numbers like "260423" or similar in the middle, formatting it as "26/04/2023".
-        - "COGNOME E NOME ASSISTITO" or "Nome e cognome paziente": DO NOT extract boilerplate labels like "COGNOME E NOME DELL'ASSISTITO". If the name is blank, return null.
-        - "Etichetta - Nome e cognome medico": Extract specifically the doctor's name (e.g., "Dott. GALATI RANDO VINCENZA"). DO NOT include the patient's codice fiscale inside this field!
-        - "Etichetta - Ingredienti": Find text like "tocoferolo", "olio di oliva", "cannabis flos" located in the receipt section.
-        - "Etichetta - Iva": Look explicitly for a percentage or small amount (e.g., 8,07) near standard boilerplate lines.
-        - "TOTALE PRESCRIZIONE" / "Prezzo": Extract the biggest final amount near the Euro sign (e.g. 88,77).
-        - "TIMBRO MEDICO" / "FIRMA MEDICO": Return strictly boolean `true` or `false` based on text evidence (e.g. titles or signatures).
-        
-        Fields to extract: {', '.join(schema_fields)}
-        
-        Document Text:
-        {text}
-        """
+Sei un parser di prescrizioni mediche italiane. Estrai SOLO i campi richiesti in JSON valido.
+
+Istruzioni:
+- Usa solo le informazioni presenti nel testo OCR.
+- Non aggiungere spiegazioni.
+- Se un valore è assente o incerto, metti null.
+- Correggi errori OCR evidenti: es. CANNARIS->CANNABIS, SLIVA->OLIVA, BedroCAN->Bedrocan.
+- Riconosci pattern tipici:
+  - codice fiscale italiano
+  - date
+  - importi
+  - THC/CBD
+  - avvertenze tipo "tenere fuori dalla portata dei bambini", "positività al test antidoping", "utilizzare entro"
+- OCR_FIRMA MEDICO e OCR_TIMBRO MEDICO devono valere solo: "Presente", "Assente" oppure null.
+
+Output: solo JSON.
+
+[ELENCO CAMPI]
+{', '.join(schema_fields)}
+
+TESTO OCR:
+{text}
+"""
 
         # 1. Direct Local LLM (llama-cpp-python)
         if self._llm:
@@ -120,21 +122,26 @@ class LLMParser:
         schema_fields: List of field names to extract
         """
         prompt = f"""
-        Extract the following fields from the provided document image. 
-        Return ONLY a valid JSON object where keys are the field names.
-        If a field is not found, use null or an empty string.
-        
-        IMPORTANT RULES for specific fields:
-        - For "TIMBRO MEDICO": return `true` (boolean) if you find any text that looks like a medical stamp. Otherwise, return `false`.
-        - For "FIRMA MEDICO": return `true` (boolean) if you find any text or string that suggests the presence of a signature. Otherwise, return `false`.
-        - For "CODICE ESENZIONE": this is usually a short code (e.g., "TDL", "E01", "048"). Be careful to extract it exactly as it appears.
-        - For "TESTO PRESCRIZIONE" or "Prescrizione": extract the main body of the prescription detailing the cannabis preparation (e.g., "CANNABIS FLOS", "BEDROCAN", "OLIO", doses, etc.). Combine all related text.
-        - For "TOTALE PRESCRIZIONE" or "Totale": extract the total monetary cost or price in euros (e.g., 88,77 or 88.77).
-        - For "COGNOME E NOME ASSISTITO" or "Paziente": DO NOT extract boilerplate labels like "COGNOME E NOME DELL'ASSISTITO" or "PRESCRITTO DALLA LEGGE". Only extract the actual handwritten/printed patient name. If it's missing or just a label, return null.
-        - Tutte le date MUST be extracting in DD/MM/YYYY format.
-        
-        Fields to extract: {', '.join(schema_fields)}
-        """
+Sei un parser di prescrizioni mediche italiane. Estrai SOLO i campi richiesti in JSON valido.
+
+Istruzioni:
+- Usa solo le informazioni presenti nell'immagine.
+- Non aggiungere spiegazioni.
+- Se un valore è assente o incerto, metti null.
+- Correggi errori evidenti: es. CANNARIS->CANNABIS, SLIVA->OLIVA, BedroCAN->Bedrocan.
+- Riconosci pattern tipici:
+  - codice fiscale italiano
+  - date
+  - importi
+  - THC/CBD
+  - avvertenze tipo "tenere fuori dalla portata dei bambini", "positività al test antidoping", "utilizzare entro"
+- OCR_FIRMA MEDICO e OCR_TIMBRO MEDICO devono valere solo: "Presente", "Assente" oppure null.
+
+Output: solo JSON.
+
+[ELENCO CAMPI]
+{', '.join(schema_fields)}
+"""
 
         if not self.api_key and "localhost" not in self.base_url and "127.0.0.1" not in self.base_url:
             return {"error": "API Key is required for remote LLMs"}
