@@ -10,6 +10,12 @@ from PIL import Image
 from pyzbar.pyzbar import decode as decode_barcode
 import logging
 
+try:
+    from ultralytics import YOLO
+    HAS_YOLO = True
+except ImportError:
+    HAS_YOLO = False
+
 logger = logging.getLogger("Preprocessing")
 
 # --- Models Definitions ---
@@ -219,6 +225,62 @@ class LabelCropper:
         except Exception as e:
             logger.warning(f"[!] Cropping failed: {e}. Returning original.")
             return img
+
+class FieldDetector:
+    """Uses YOLOv8 to detect specific fields and crops them. Fallbacks to geometric slicing if model missing."""
+    def __init__(self, model_path="fields_model.pt"):
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = None
+        self.use_yolo = False
+        
+        import os
+        if HAS_YOLO and os.path.exists(model_path):
+            try:
+                self.model = YOLO(model_path)
+                logger.info(f"[+] YOLO Field Detector loaded successfully on {self.device}.")
+                self.use_yolo = True
+            except Exception as e:
+                logger.error(f"[!] Errore caricamento YOLO: {e}")
+        else:
+            logger.warning(f"[!] Modello YOLO {model_path} non trovato. Verrà usato il fallback geometrico temporaneo.")
+
+    def detect_and_crop(self, img):
+        """Restituisce un dizionario { 'nome_campo': image_crop }"""
+        h, w = img.shape[:2]
+        crops = {}
+        
+        if self.use_yolo and self.model:
+            results = self.model(img, device=0 if self.device=="cuda" else "cpu", verbose=False)
+            res = results[0]
+            boxes = res.boxes
+            names = res.names
+            
+            for box in boxes:
+                cls_id = int(box.cls[0].item())
+                label = names[cls_id]
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                
+                # Padding di sicurezza per l'OCR (evitare di tagliare lettere)
+                pad_x = 5
+                pad_y = 5
+                fx1 = max(0, x1 - pad_x)
+                fy1 = max(0, y1 - pad_y)
+                fx2 = min(w, x2 + pad_x)
+                fy2 = min(h, y2 + pad_y)
+                
+                crops[label] = img[fy1:fy2, fx1:fx2]
+                
+            return crops
+
+        # Fallback Geometrico Estremo: Dividiamo la metà superiore e inferiore dell'etichietta se non c'è YOLO.
+        # Questa roba è instabile ma serve per coprire il flusso se l'utente non ha ancora fatto l'addestramento.
+        # Tipicamente una prescrizione ha il paziente in alto, ecc.
+        # Generiamo due enormi blocchi come fallback, l'OCR li processerà.
+        mid_y = h // 2
+        crops["Paziente_Dottore"] = img[0:mid_y, 0:w]
+        crops["Ingredienti_Dosaggio"] = img[mid_y:h, 0:w]
+        return crops
 
 class PDFProcessor:
     """Handles PDF loading and splitting into images."""

@@ -135,13 +135,26 @@ elif st.session_state.page == "processing":
         st.rerun()
 
 elif st.session_state.page == "dashboard":
-    st.title("🗃️ Dashboard Validazione")
+    st.title("🗃️ Dashboard Validazione OCR Regionale")
     
     records = db.get_all_prescriptions()
     
-    col1, col2, col3 = st.columns([6, 2, 2])
+    # --- KPI Metrics ---
+    total = len(records)
+    da_verificare = sum(1 for r in records if r["status"] == "Da Verificare")
+    avg_conf = sum(r["mean_ocr_confidence"] for r in records) / total if total > 0 else 0
+    
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("📄 Prescrizioni Totali", total)
+    m2.metric("⚠️ Da Verificare", da_verificare, delta="-Rimanenti", delta_color="inverse" if da_verificare > 0 else "normal")
+    m3.metric("✅ Approvate", total - da_verificare)
+    m4.metric("🎯 Confidenza Media", f"{avg_conf*100:.1f}%")
+    
+    st.markdown("---")
+    
+    col1, col2, col3 = st.columns([5, 2, 2])
     with col1:
-        st.markdown("Seleziona una ricetta per visualizzarne il documento e approvare i dati.")
+        st.markdown("**Elenco documenti pronti per la revisione:**")
     with col2:
         if records:
             # Generate Excel strictly from DB
@@ -184,13 +197,13 @@ elif st.session_state.page == "dashboard":
         for r in records:
             status_color = "🔴" if r["status"] == "Da Verificare" else "🟢"
             with st.container(border=True):
-                r_col1, r_col2, r_col3, r_col4, r_col5 = st.columns([4, 2, 2, 2, 2])
-                r_col1.markdown(f"**{r['original_file']}**")
-                r_col2.text(f"P. {r['page']} | Conf: {r['mean_ocr_confidence']*100:.0f}%")
-                r_col3.text(f"Barcode: {r['barcode']}")
-                r_col4.markdown(f"{status_color} {r['status']}")
+                r_col1, r_col2, r_col3, r_col4, r_col5 = st.columns([3, 2, 2, 2, 1])
+                r_col1.markdown(f"📄 **{r['original_file']}**")
+                r_col2.text(f"Pag. {r['page']} | {r['mean_ocr_confidence']*100:.0f}%")
+                r_col3.text(f"Cod: {r['barcode']}")
+                r_col4.markdown(f"{status_color} **{r['status']}**")
                 
-                if r_col5.button("Verifica", key=f"btn_{r['id']}"):
+                if r_col5.button("Verifica", key=f"btn_{r['id']}", type="primary" if r["status"] == "Da Verificare" else "secondary", use_container_width=True):
                     st.session_state.selected_record_id = r['id']
                     st.session_state.page = "editor"
                     st.rerun()
@@ -243,9 +256,10 @@ elif st.session_state.page == "editor":
                 st.rerun()
                 
         with c_right:
-            st.subheader("Visualizzazione Originale")
+            st.subheader("Documento Originale")
             img_path = record["image_path"]
             if os.path.exists(img_path):
-                st.image(img_path, use_column_width=True)
+                with st.container(border=True):
+                    st.image(img_path, use_column_width=True)
             else:
                 st.warning(f"Immagine non trovata nel percorso: {img_path}")

@@ -42,6 +42,35 @@ class OCREngine:
             logger.error(f"[!] OCR Failed: {e}")
             return "", 0.0
 
+    def process_crops(self, crops_dict):
+        """Processes a dictionary of {label: image_array}. Returns a dict of {label: text} and average conf."""
+        if not crops_dict:
+            return {}, 0.0
+            
+        results = {}
+        confidences = []
+        
+        images = list(crops_dict.values())
+        labels = list(crops_dict.keys())
+        
+        try:
+            res = self.model(images)
+            for i, page in enumerate(res.pages):
+                full_text = ""
+                for block in page.blocks:
+                    for line in block.lines:
+                        for w in line.words:
+                            confidences.append(w.confidence)
+                        line_text = " ".join([w.value for w in line.words])
+                        full_text += line_text + " "
+                results[labels[i]] = full_text.strip()
+                
+            avg_conf = sum(confidences) / len(confidences) if confidences else 1.0
+            return results, round(avg_conf, 4)
+        except Exception as e:
+            logger.error(f"[!] OCR Crops Failed: {e}")
+            return {}, 0.0
+
 
 class LLMExtractor:
     def __init__(self, config):

@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 from queue import Queue
 
-from app.core.preprocessing import PDFProcessor, ImageEnhancer, BarcodeScanner, LabelCropper
+from app.core.preprocessing import PDFProcessor, ImageEnhancer, BarcodeScanner, FieldDetector
 from app.core.extraction import OCREngine, LLMExtractor, VisionExtractor
 from app.core.excel_matcher import ExcelProcessor
 from app.core.postprocessing import PDFExporter
@@ -99,7 +99,7 @@ class PipelineRunner(threading.Thread):
         
         enhancer = ImageEnhancer()
         barcode_scanner = BarcodeScanner(model_path="barcode_model.pth")
-        cropper = LabelCropper(model_path="crop_model.pth")
+        cropper = FieldDetector(model_path="fields_model.pt")
         
         if self.use_vision:
             vision_extractor = VisionExtractor(config=llm_config)
@@ -168,27 +168,29 @@ class PipelineRunner(threading.Thread):
                     cv2.imwrite(str(img_path), bgr_deskewed, [cv2.IMWRITE_PNG_COMPRESSION, 1])
                     saved_images.append(img_path)
                     
-                    # Label Crop & Extraction
-                    cropped = cropper.crop(deskewed)
+                    # Field Detection (YOLO or Geometric Fallback)
+                    crops_dict = cropper.detect_and_crop(deskewed)
                     
                     if self.use_vision:
-                        # VisionLLM supporta array di immagini: passiamo la pagina interna e il ritaglio ad alta risoluzione!
-                        ocr_data = vision_extractor.extract([deskewed, cropped])
+                        # VisionLLM supporta array di immagini: passiamo la pagina interna e i vari ritagli per il contesto
+                        ocr_data = vision_extractor.extract([deskewed] + list(crops_dict.values())[:3])
                         mean_conf = 1.0
                     else:
-                        self.logger.info("          Running Full Page OCR...")
-                        full_text, conf_full = ocr_engine.process_image(deskewed)
+                        self.logger.info(f"          Running Fast Targeted OCR on {len(crops_dict)} crops...")
+                        ocr_data, mean_conf = ocr_engine.process_crops(crops_dict)
                         
-                        mean_conf = conf_full
-                        combined_text = full_text
-                        
-                        # --- DEBUG: Salva il testo grezzo OCR per permettere al programmatore di ottimizzarlo ---
-                        raw_text_path = output_dir / f"{pdf_path.stem}_p{page_num}_raw_ocr.txt"
-                        with open(raw_text_path, "w", encoding="utf-8") as rf:
-                            rf.write(combined_text)
-                        # ----------------------------------------------------------------------------------------
-                        
-                        ocr_data = llm_extractor.extract(combined_text)
+                        # Se ha trovato solo pochi blocchi giganti (fallback geometrico), l'output OCR deve 
+                        # essere ristrutturato dall'LLM. Se Invece YOLO funziona a regime, sarà già un Dict pulito.
+                        if not cropper.use_yolo or len(crops_dict) <= 3:
+                            combined_text = "\n".join(ocr_data.values())
+                            
+                            # --- DEBUG: Salva il testo grezzo OCR per permettere ottimizzazioni ---
+                            raw_text_path = output_dir / f"{pdf_path.stem}_p{page_num}_raw_ocr.txt"
+                            with open(raw_text_path, "w", encoding="utf-8") as rf:
+                                rf.write(combined_text)
+                            # ----------------------------------------------------------------------
+                            
+                            ocr_data = llm_extractor.extract(combined_text)
                     
                     results.append({
                         "barcode": barcode_str,

@@ -14,3 +14,4 @@ pyzbar
 requests
 streamlit
 watchdog
+ultralytics
