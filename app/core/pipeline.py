@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 from queue import Queue
 
-from app.core.preprocessing import PDFProcessor, ImageEnhancer, BarcodeScanner, FieldDetector
+from app.core.preprocessing import PDFProcessor, ImageEnhancer, BarcodeScanner, LabelCropper, FieldDetector
 from app.core.extraction import OCREngine, LLMExtractor, VisionExtractor
 from app.core.excel_matcher import ExcelProcessor
 from app.core.postprocessing import PDFExporter
@@ -99,7 +99,8 @@ class PipelineRunner(threading.Thread):
         
         enhancer = ImageEnhancer()
         barcode_scanner = BarcodeScanner(model_path="barcode_model.pth")
-        cropper = FieldDetector(model_path="fields_model.pt")
+        cropper = LabelCropper(model_path="crop_model.pth")
+        field_detector = FieldDetector(model_path="fields_model.pt")
         
         if self.use_vision:
             vision_extractor = VisionExtractor(config=llm_config)
@@ -168,20 +169,23 @@ class PipelineRunner(threading.Thread):
                     cv2.imwrite(str(img_path), bgr_deskewed, [cv2.IMWRITE_PNG_COMPRESSION, 1])
                     saved_images.append(img_path)
                     
-                    # Field Detection (YOLO or Geometric Fallback)
-                    crops_dict = cropper.detect_and_crop(deskewed)
+                    # 1. Label Crop (Isola la singola etichetta dal foglio intero A4)
+                    cropped_label = cropper.crop(deskewed)
+
+                    # 2. Field Detection (YOLO ritaglia i singoli campi)
+                    crops_dict = field_detector.detect_and_crop(cropped_label)
                     
                     if self.use_vision:
-                        # VisionLLM supporta array di immagini: passiamo la pagina interna e i vari ritagli per il contesto
-                        ocr_data = vision_extractor.extract([deskewed] + list(crops_dict.values())[:3])
+                        # VisionLLM supporta array di immagini: passiamo la fustella intera e i ritagli specifici YOLO (se ci sono)
+                        ocr_data = vision_extractor.extract([deskewed, cropped_label] + list(crops_dict.values())[:3])
                         mean_conf = 1.0
                     else:
-                        self.logger.info(f"          Running Fast Targeted OCR on {len(crops_dict)} crops...")
+                        self.logger.info(f"          Running Targeted OCR on {len(crops_dict)} crops...")
                         ocr_data, mean_conf = ocr_engine.process_crops(crops_dict)
                         
-                        # Se ha trovato solo pochi blocchi giganti (fallback geometrico), l'output OCR deve 
-                        # essere ristrutturato dall'LLM. Se Invece YOLO funziona a regime, sarà già un Dict pulito.
-                        if not cropper.use_yolo or len(crops_dict) <= 3:
+                        # Se YOLO non è stato allenato, crops_dict conterrà solo l'etichetta intatta intera ["Full_Label"].
+                        # In quel caso, docTR estrae tutto il testo, e lo facciamo passare dallo structurizer LLM
+                        if not field_detector.use_yolo or len(crops_dict) <= 1:
                             combined_text = "\n".join(ocr_data.values())
                             
                             # --- DEBUG: Salva il testo grezzo OCR per permettere ottimizzazioni ---

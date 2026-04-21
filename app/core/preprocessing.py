@@ -273,13 +273,10 @@ class FieldDetector:
                 
             return crops
 
-        # Fallback Geometrico Estremo: Dividiamo la metà superiore e inferiore dell'etichietta se non c'è YOLO.
-        # Questa roba è instabile ma serve per coprire il flusso se l'utente non ha ancora fatto l'addestramento.
-        # Tipicamente una prescrizione ha il paziente in alto, ecc.
-        # Generiamo due enormi blocchi come fallback, l'OCR li processerà.
-        mid_y = h // 2
-        crops["Paziente_Dottore"] = img[0:mid_y, 0:w]
-        crops["Ingredienti_Dosaggio"] = img[mid_y:h, 0:w]
+        # Fallback Temporaneo: se YOLO non è addestrato, non tentiamo di tagliare geometricamente (rischia di spezzare data o nomi).
+        # Restituiamo semplicemente l'immagine intera. Verrà poi indirizzata allo structurizer LLM
+        # come accadeva in passato, salvaguardando il 100% dell'output pre-esistente.
+        crops["Full_Label"] = img
         return crops
 
 class PDFProcessor:
