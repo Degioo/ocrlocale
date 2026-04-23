@@ -25,13 +25,14 @@ class QueueHandler(logging.Handler):
 
 
 class PipelineRunner(threading.Thread):
-    def __init__(self, input_dir: str, excel_file: str, use_vision: bool, msg_queue: Queue):
+    def __init__(self, input_dir: str, excel_file: str, use_vision: bool, msg_queue: Queue, config: dict = None):
         super().__init__()
         self._stop_event = threading.Event()
         self.input_dir = Path(input_dir)
         self.excel_file = Path(excel_file) if excel_file else None
         self.use_vision = use_vision
         self.msg_queue = msg_queue
+        self.llm_config = config or {"base_url": "http://localhost:11434/v1", "model": "llama3.2"}
         
         # Setup logger
         self.logger = logging.getLogger("MainPipeline")
@@ -73,12 +74,7 @@ class PipelineRunner(threading.Thread):
         for d in [self.input_dir, images_dir, final_pdfs_dir]:
             d.mkdir(parents=True, exist_ok=True)
             
-        llm_cfg_path = Path("llm_config_local.json")
-        if llm_cfg_path.exists():
-            with open(llm_cfg_path, 'r') as f:
-                llm_config = json.load(f)
-        else:
-            llm_config = {"base_url": "http://localhost:11434/v1", "model": "llama3.2"}
+        llm_config = self.llm_config
 
         # Excel file check
         if not self.excel_file or not self.excel_file.exists():

@@ -84,11 +84,13 @@ elif st.session_state.page == "processing":
     log_container = st.empty()
     
     if 'runner' not in st.session_state:
+        config = load_settings()
         st.session_state.runner = PipelineRunner(
             st.session_state.input_dir, 
             st.session_state.excel_file, 
             st.session_state.use_vision, 
-            st.session_state.runner_queue
+            st.session_state.runner_queue,
+            config
         )
         st.session_state.runner.start()
         
