@@ -1,0 +1,6 @@
+pipeline:
+  maas:
+    enabled: false
+  ocr_api:
+    api_host: ocr_glm
+    api_port: 8080

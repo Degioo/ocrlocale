@@ -1,11 +1,9 @@
 torch
 torchvision
-python-doctr
 opencv-python
 pillow
 pandas
 openpyxl
-llama-cpp-python
 matplotlib
 defusedxml
 deskew
@@ -15,3 +13,4 @@ requests
 streamlit
 watchdog
 ultralytics
+glmocr[selfhosted]

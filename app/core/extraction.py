@@ -1,186 +1,85 @@
-import torch
-import logging
-from doctr.models import ocr_predictor
-from doctr.io import DocumentFile
-
-# Import the existing LLM parser 
-import sys
 import os
+import cv2
+import tempfile
+import logging
+from pathlib import Path
+from glmocr import GlmOcr
+import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from app.utils.llm_parser import get_parser
 
 logger = logging.getLogger("Extraction")
 
-class OCREngine:
-    def __init__(self):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"[*] Loading docTR on {self.device} with PARSeq architecture...")
-        # Using PARSeq for better performance on handwriting/noisy text
-        self.model = ocr_predictor(det_arch='linknet_resnet18', reco_arch='parseq', pretrained=True)
-        if self.device.type == "cuda":
-             self.model = self.model.cuda()
-
-    def process_image(self, img_array):
-        """Processes a single numpy image array. Returns (text, average_confidence)."""
-        try:
-            # DocumentFile expects a list of images
-            res = self.model([img_array])
-            
-            full_text = ""
-            confidences = []
-            for page in res.pages:
-                for block in page.blocks:
-                    for line in block.lines:
-                        for w in line.words:
-                            confidences.append(w.confidence)
-                        line_text = " ".join([w.value for w in line.words])
-                        full_text += line_text + "\n"
-                        
-            avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
-            return full_text.strip(), round(avg_conf, 4)
-        except Exception as e:
-            logger.error(f"[!] OCR Failed: {e}")
-            return "", 0.0
-
-    def process_crops(self, crops_dict):
-        """Processes a dictionary of {label: image_array}. Returns a dict of {label: text} and average conf."""
-        if not crops_dict:
-            return {}, 0.0
-            
-        results = {}
-        confidences = []
+class GLMOCRExtractor:
+    def __init__(self, config=None):
+        logger.info("[*] Initializing GLM-OCR Extractor...")
+        # config is expected to have 'base_url' etc, but glmocr uses config.yaml by default.
+        # layout_device="cpu" so we don't need a huge GPU for layout detection on the client side
+        self.glm_parser = GlmOcr(layout_device="cpu")
         
-        images = list(crops_dict.values())
-        labels = list(crops_dict.keys())
+        # We still need LLMParser to extract the JSON from the Markdown produced by GLM-OCR
+        self.llm_parser = get_parser(
+            api_key=config.get("api_key") if config else None,
+            base_url=config.get("base_url", "http://ocr_glm:8080/v1") if config else "http://ocr_glm:8080/v1",
+            model=config.get("model", "glm-ocr") if config else "glm-ocr",
+            timeout=config.get("timeout", 120) if config else 120
+        )
         
+        default_fields = [
+            "Avvertenze", "Barcode", "Data_Preparazione", 
+            "Dosaggio", "Dottore", "Ingredienti", 
+            "Paziente", "Scadenza", "Tot"
+        ]
+        
+        import json
+        fields_path = Path("fields.json")
+        if fields_path.exists():
+            try:
+                with open(fields_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if "target_fields" in data:
+                        default_fields = data["target_fields"]
+            except Exception as e:
+                logger.warning(f"Failed to load fields.json: {e}")
+
+        self.fields = config.get("target_fields", default_fields) if config else default_fields
+
+    def extract_full_pipeline(self, img_array):
+        """Processes a single numpy image array using GLM-OCR and extracts JSON."""
+        if img_array is None or img_array.size == 0:
+            return {"error": "Empty image array"}, 0.0
+            
         try:
-            res = self.model(images)
-            for i, page in enumerate(res.pages):
-                full_text = ""
-                for block in page.blocks:
-                    for line in block.lines:
-                        for w in line.words:
-                            confidences.append(w.confidence)
-                        line_text = " ".join([w.value for w in line.words])
-                        full_text += line_text + " "
-                results[labels[i]] = full_text.strip()
+            # 1. Save img_array to a temp file because glmocr expects a file path
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
+                tmp_path = tmp_file.name
+                # Convert RGB to BGR for OpenCV encoding
+                bgr_img = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+                cv2.imwrite(tmp_path, bgr_img)
+            
+            # 2. Parse using GLM-OCR
+            logger.info(f"[*] Calling GLM-OCR for image parsing...")
+            result = self.glm_parser.parse(tmp_path)
+            markdown_text = result.markdown_result
+            
+            # Clean up temp file
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
                 
-            avg_conf = sum(confidences) / len(confidences) if confidences else 1.0
-            return results, round(avg_conf, 4)
+            # 3. Use LLM to extract JSON from Markdown
+            logger.info(f"[*] Calling vLLM to extract fields from Markdown...")
+            extracted_json = self.llm_parser.extract_fields(markdown_text, self.fields)
+            
+            # mean_conf is hard to get from GLM-OCR natively without deeper inspection, defaulting to 1.0
+            return extracted_json, 1.0
+            
         except Exception as e:
-            logger.error(f"[!] OCR Crops Failed: {e}")
-            return {}, 0.0
+            logger.error(f"[!] GLM-OCR Pipeline Failed: {e}")
+            return {"error": str(e)}, 0.0
 
-
-class LLMExtractor:
-    def __init__(self, config):
-        """
-        config dict with: api_key, base_url, model, local_model_path, timeout
-        """
-        self.parser = get_parser(
-            api_key=config.get("api_key"),
-            base_url=config.get("base_url"),
-            model=config.get("model"),
-            local_model_path=config.get("local_model_path"),
-            timeout=config.get("timeout", 120)
-        )
-        default_fields = [
-            "Avvertenze", "Barcode", "Data_Preparazione", 
-            "Dosaggio", "Dottore", "Ingredienti", 
-            "Paziente", "Scadenza", "Tot"
-        ]
-        
-        import json
-        from pathlib import Path
-        fields_path = Path("fields.json")
-        if fields_path.exists():
-            try:
-                with open(fields_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    if "target_fields" in data:
-                        default_fields = data["target_fields"]
-            except Exception as e:
-                logger.warning(f"Failed to load fields.json: {e}")
-
-        self.fields = config.get("target_fields", default_fields)
-
-    def extract(self, text):
-        if not text:
-             return {"error": "Empty OCR text"}
-             
-        try:
-             logger.info("[*] Calling LLM for field extraction...")
-             return self.parser.extract_fields(text, self.fields)
-        except Exception as e:
-             logger.error(f"[!] LLM Extraction Error: {e}")
-             return {"error": str(e)}
-
-class VisionExtractor:
-    def __init__(self, config):
-        """
-        config dict with: api_key, base_url, model, local_model_path, timeout
-        """
-        self.parser = get_parser(
-            api_key=config.get("api_key"),
-            base_url=config.get("base_url"),
-            model=config.get("model", "moondream"),
-            local_model_path=config.get("local_model_path"),
-            timeout=config.get("timeout", 180) # vision can be slower
-        )
-        default_fields = [
-            "Avvertenze", "Barcode", "Data_Preparazione", 
-            "Dosaggio", "Dottore", "Ingredienti", 
-            "Paziente", "Scadenza", "Tot"
-        ]
-        
-        import json
-        from pathlib import Path
-        fields_path = Path("fields.json")
-        if fields_path.exists():
-            try:
-                with open(fields_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    if "target_fields" in data:
-                        default_fields = data["target_fields"]
-            except Exception as e:
-                logger.warning(f"Failed to load fields.json: {e}")
-
-        self.fields = config.get("target_fields", default_fields)
-
-    def extract(self, img_input):
-        """Processes a single numpy image array or a list of image arrays using a Vision LLM."""
-        if img_input is None:
-             return {"error": "Empty image array"}
-             
-        # Normalize to list
-        if not isinstance(img_input, list):
-            img_input = [img_input]
-             
-        try:
-             import cv2
-             import base64
-             
-             base64_images = []
-             for img_array in img_input:
-                 if img_array is None or img_array.size == 0:
-                     continue
-                 
-                 # Convert RGB to BGR for OpenCV encoding
-                 bgr_img = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-                 success, encoded_image = cv2.imencode('.png', bgr_img)
-                 if not success:
-                     logger.warning("Failed to encode one of the images to PNG")
-                     continue
-                     
-                 image_base64 = base64.b64encode(encoded_image.tobytes()).decode('utf-8')
-                 base64_images.append(image_base64)
-             
-             if not base64_images:
-                 return {"error": "No valid images to process"}
-                 
-             logger.info(f"[*] Calling Vision LLM '{self.parser.model}' with {len(base64_images)} images for direct extraction...")
-             return self.parser.extract_fields_from_image(base64_images, self.fields)
-             
-        except Exception as e:
-             logger.error(f"[!] Vision LLM Extraction Error: {e}")
-             return {"error": str(e)}
+# Keeping dummy classes so pipeline.py doesn't crash if imported, but we will modify pipeline.py anyway
+class OCREngine: pass
+class LLMExtractor: pass
+class VisionExtractor: pass

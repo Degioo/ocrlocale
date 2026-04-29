@@ -33,3 +33,6 @@ ENV/
 # Application specifics
 input/
 output/
+
+# Database
+*.db

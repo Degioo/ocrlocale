@@ -8,7 +8,7 @@ from pathlib import Path
 from queue import Queue
 
 from app.core.preprocessing import PDFProcessor, ImageEnhancer, BarcodeScanner, LabelCropper, FieldDetector
-from app.core.extraction import OCREngine, LLMExtractor, VisionExtractor
+from app.core.extraction import GLMOCRExtractor
 from app.core.excel_matcher import ExcelProcessor
 from app.core.postprocessing import PDFExporter
 from app.core.database import DatabaseManager
@@ -98,12 +98,8 @@ class PipelineRunner(threading.Thread):
         cropper = LabelCropper(model_path="crop_model.pth")
         field_detector = FieldDetector(model_path="fields_model.pt")
         
-        if self.use_vision:
-            vision_extractor = VisionExtractor(config=llm_config)
-            self.logger.info(f"[*] Vision Pipeline enabled (Model: {llm_config.get('model')})")
-        else:
-            ocr_engine = OCREngine()
-            llm_extractor = LLMExtractor(config=llm_config)
+        extractor = GLMOCRExtractor(config=llm_config)
+        self.logger.info(f"[*] GLM-OCR Extractor initialized")
             
         excel_processor = ExcelProcessor(excel_path=self.excel_file)
         pdf_exporter = PDFExporter()
@@ -165,45 +161,7 @@ class PipelineRunner(threading.Thread):
                     cv2.imwrite(str(img_path), bgr_deskewed, [cv2.IMWRITE_PNG_COMPRESSION, 1])
                     saved_images.append(img_path)
                     
-                    # 1. Label Crop (Isola la singola etichetta dal foglio intero A4)
-                    cropped_label = cropper.crop(deskewed)
-
-                    # 2. Field Detection (YOLO)
-                    # Passiamo il foglio intero deskewed al FieldDetector così può inquadrare TUTTO (etichetta + dati page)
-                    crops_dict = field_detector.detect_and_crop(deskewed)
-                    
-                    if self.use_vision:
-                        ocr_data = vision_extractor.extract([deskewed, cropped_label] + list(crops_dict.values())[:3])
-                        mean_conf = 1.0
-                    else:
-                        # Fallback temporaneo per mantenere il sistema al 100% funzionante pre-addestramento YOLO
-                        if not field_detector.use_yolo or len(crops_dict) <= 1:
-                            self.logger.info("          Running Full Page & Label OCR...")
-                            # Inseriamo sia il foglio intero che l'etichetta per processarli in un singolo batch velocissimo
-                            fallback_crops = {
-                                "Full_Page": deskewed,
-                                "Label": cropped_label
-                            }
-                            ocr_texts, mean_conf = ocr_engine.process_crops(fallback_crops)
-                            
-                            combined_text = (
-                                f"--- TESTO INTERA RICETTA (Per Timbri/Firme/ecc) ---\n{ocr_texts.get('Full_Page', '')}\n\n"
-                                f"--- TESTO ETICHETTA (Per Dati Specifici Farmaco) ---\n{ocr_texts.get('Label', '')}"
-                            )
-                        else:
-                            self.logger.info(f"          Running Targeted OCR on {len(crops_dict)} crops...")
-                            ocr_texts, mean_conf = ocr_engine.process_crops(crops_dict)
-                            # Se YOLO funziona, i campi sono già estratti nel formato JSON voluto!
-                            combined_text = "\n".join(ocr_texts.values()) # Se ancora passiamo per LLM per pulizia
-                            # ocr_data = ocr_texts  # <- Se non vogliamo usare LLM dopo YOLO, de-commenta questo in futuro.
-                            
-                        # --- DEBUG: Salva il testo grezzo OCR per permettere ottimizzazioni ---
-                        raw_text_path = output_dir / f"{pdf_path.stem}_p{page_num}_raw_ocr.txt"
-                        with open(raw_text_path, "w", encoding="utf-8") as rf:
-                            rf.write(combined_text)
-                        # ----------------------------------------------------------------------
-                        
-                        ocr_data = llm_extractor.extract(combined_text)
+                    ocr_data, mean_conf = extractor.extract_full_pipeline(deskewed)
                     
                     results.append({
                         "barcode": barcode_str,

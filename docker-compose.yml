@@ -1,13 +1,14 @@
 version: '3.8'
 
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ocr_ollama
+  glm-ocr-server:
+    image: vllm/vllm-openai:v0.19.0-ubuntu2404
+    container_name: ocr_glm
     ports:
-      - "11434:11434"
+      - "8080:8080"
+    command: ["--model", "zai-org/GLM-OCR", "--port", "8080", "--speculative-config", "{\"method\": \"mtp\", \"num_speculative_tokens\": 3}", "--served-model-name", "glm-ocr"]
     volumes:
-      - ollama_data:/root/.ollama
+      - glm_data:/root/.cache/huggingface
 
   ocr-cannabis:
     build: .
@@ -18,7 +19,7 @@ services:
       - ./input:/app/input
       - ./output:/app/output
     depends_on:
-      - ollama
+      - glm-ocr-server
 
 volumes:
-  ollama_data:
+  glm_data:

@@ -38,9 +38,9 @@ def load_settings():
             cfg = json.load(f)
             is_docker = os.path.exists('/.dockerenv') or os.environ.get('IS_DOCKER') == '1'
             if "localhost" in cfg.get("base_url", "") and is_docker:
-                cfg["base_url"] = cfg["base_url"].replace("localhost", "ocr_ollama")
+                cfg["base_url"] = cfg["base_url"].replace("localhost", "ocr_glm")
             return cfg
-    return {"base_url": "http://ocr_ollama:11434/v1", "model": "llama3.2"}
+    return {"base_url": "http://ocr_glm:8080/v1", "model": "glm-ocr"}
 
 # --- ROUTER ---
 

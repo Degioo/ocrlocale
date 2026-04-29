@@ -2,7 +2,7 @@ import json
 import requests
 
 class LLMParser:
-    def __init__(self, api_key=None, base_url="http://localhost:11434/v1", model="llama3.2", local_model_path=None, timeout=60):
+    def __init__(self, api_key=None, base_url="http://ocr_glm:8080/v1", model="glm-ocr", local_model_path=None, timeout=60):
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
@@ -311,20 +311,20 @@ def get_parser(api_key=None, base_url=None, model=None, local_model_path=None, t
     global _parser_instance
     import os
     
-    default_url = "http://localhost:11434/v1"
+    default_url = "http://ocr_glm:8080/v1"
     is_docker = os.path.exists('/.dockerenv') or os.environ.get('IS_DOCKER') == '1'
     
     if is_docker:
-        default_url = "http://ocr_ollama:11434/v1"
+        default_url = "http://ocr_glm:8080/v1"
         if base_url:
-            base_url = base_url.replace("localhost", "ocr_ollama").replace("127.0.0.1", "ocr_ollama")
+            base_url = base_url.replace("localhost", "ocr_glm").replace("127.0.0.1", "ocr_glm")
             
     if _parser_instance is None or api_key or base_url or model or local_model_path or timeout:
         # Aumentato il timeout di default perché i task in 2 step sono più pesanti
         _parser_instance = LLMParser(
             api_key=api_key, 
             base_url=base_url or default_url, 
-            model=model or "llama3.2",
+            model=model or "glm-ocr",
             local_model_path=local_model_path,
             timeout=timeout or 120
         )
