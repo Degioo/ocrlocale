@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import time
-import json
 import queue
 import pandas as pd
 from pathlib import Path
@@ -15,7 +14,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Inizializza session state
 if 'page' not in st.session_state:
     st.session_state.page = "setup"
 if 'logs' not in st.session_state:
@@ -31,43 +29,24 @@ if 'selected_record_id' not in st.session_state:
 
 db = DatabaseManager()
 
-def load_settings():
-    llm_cfg_path = Path("llm_config_local.json")
-    if llm_cfg_path.exists():
-        with open(llm_cfg_path, 'r') as f:
-            cfg = json.load(f)
-            is_docker = os.path.exists('/.dockerenv') or os.environ.get('IS_DOCKER') == '1'
-            if "localhost" in cfg.get("base_url", "") and is_docker:
-                cfg["base_url"] = cfg["base_url"].replace("localhost", "ocr_glm")
-            return cfg
-    return {"base_url": "http://ocr_glm:8080/v1", "model": "glm-ocr"}
-
 # --- ROUTER ---
 
 if st.session_state.page == "setup":
     st.title("🌿 Piattaforma OCR Cannabis ATS")
-    st.markdown("Benvenuto. Questa piattaforma analizza le prescrizioni scansionate ed estrae i dati automaticamente.")
+    st.markdown("Benvenuto. Questa piattaforma analizza le prescrizioni scansionate estraendo il testo tramite GLM-OCR.")
     
-    st.subheader("1. Cartella di Input")
+    st.subheader("Cartella di Input")
     input_dir = st.text_input("Cartella PDF da analizzare", value=os.path.abspath("input"))
     
-    # Analyze folder
     pdf_count = 0
     if os.path.exists(input_dir):
         pdf_count = len(list(Path(input_dir).rglob("*.pdf")))
     
     st.info(f"📁 Trovati **{pdf_count} file PDF** pronti per l'elaborazione.")
     
-    st.subheader("2. File Excel di Riferimento (Regionale)")
-    excel_file = st.text_input("File Excel di Riconciliazione", value="", help="Lascia vuoto per auto-riconoscimento")
-    
-    use_vision = st.checkbox("Usa Motore Visivo ad alta precisione (Consigliato per calligrafia pessima)", value=False)
-    
     st.markdown("---")
     if st.button("🚀 Avvia Analisi del Lotto", type="primary", use_container_width=True, disabled=(pdf_count==0)):
         st.session_state.input_dir = input_dir
-        st.session_state.excel_file = excel_file
-        st.session_state.use_vision = use_vision
         st.session_state.page = "processing"
         st.rerun()
         
@@ -84,13 +63,9 @@ elif st.session_state.page == "processing":
     log_container = st.empty()
     
     if 'runner' not in st.session_state:
-        config = load_settings()
         st.session_state.runner = PipelineRunner(
             st.session_state.input_dir, 
-            st.session_state.excel_file, 
-            st.session_state.use_vision, 
-            st.session_state.runner_queue,
-            config
+            st.session_state.runner_queue
         )
         st.session_state.runner.start()
         
@@ -137,20 +112,17 @@ elif st.session_state.page == "processing":
         st.rerun()
 
 elif st.session_state.page == "dashboard":
-    st.title("🗃️ Dashboard Validazione OCR Regionale")
+    st.title("🗃️ Dashboard Revisione OCR")
     
     records = db.get_all_prescriptions()
     
-    # --- KPI Metrics ---
     total = len(records)
     da_verificare = sum(1 for r in records if r["status"] == "Da Verificare")
-    avg_conf = sum(r["mean_ocr_confidence"] for r in records) / total if total > 0 else 0
     
-    m1, m2, m3, m4 = st.columns(4)
+    m1, m2, m3 = st.columns(3)
     m1.metric("📄 Prescrizioni Totali", total)
     m2.metric("⚠️ Da Verificare", da_verificare, delta="-Rimanenti", delta_color="inverse" if da_verificare > 0 else "normal")
     m3.metric("✅ Approvate", total - da_verificare)
-    m4.metric("🎯 Confidenza Media", f"{avg_conf*100:.1f}%")
     
     st.markdown("---")
     
@@ -159,19 +131,16 @@ elif st.session_state.page == "dashboard":
         st.markdown("**Elenco documenti pronti per la revisione:**")
     with col2:
         if records:
-            # Generate Excel strictly from DB
             from io import BytesIO
             import pandas as pd
             
             flat_records = []
             for r in records:
-                row_data = {"DB_Status": r["status"], "Original_File": r["original_file"], "Confidence": f"{r['mean_ocr_confidence']*100:.1f}%"}
-                try:
-                    js = json.loads(r["verified_data_json"])
-                    row_data.update(js)
-                except:
-                    pass
-                flat_records.append(row_data)
+                flat_records.append({
+                    "DB_Status": r["status"], 
+                    "Original_File": r["original_file"], 
+                    "Markdown_Estrazione": r["verified_data_json"]
+                })
                 
             df_export = pd.DataFrame(flat_records)
             output = BytesIO()
@@ -195,23 +164,20 @@ elif st.session_state.page == "dashboard":
     if not records:
         st.info("Nessuna elaborazione presente nel Database.")
     else:
-        # Display as a table with Action button
         for r in records:
             status_color = "🔴" if r["status"] == "Da Verificare" else "🟢"
             with st.container(border=True):
-                r_col1, r_col2, r_col3, r_col4, r_col5 = st.columns([3, 2, 2, 2, 1])
-                r_col1.markdown(f"📄 **{r['original_file']}**")
-                r_col2.text(f"Pag. {r['page']} | {r['mean_ocr_confidence']*100:.0f}%")
-                r_col3.text(f"Cod: {r['barcode']}")
-                r_col4.markdown(f"{status_color} **{r['status']}**")
+                r_col1, r_col2, r_col3 = st.columns([5, 2, 2])
+                r_col1.markdown(f"📄 **{r['original_file']}** (Pag. {r['page']})")
+                r_col2.markdown(f"{status_color} **{r['status']}**")
                 
-                if r_col5.button("Verifica", key=f"btn_{r['id']}", type="primary" if r["status"] == "Da Verificare" else "secondary", use_container_width=True):
+                if r_col3.button("Verifica", key=f"btn_{r['id']}", type="primary" if r["status"] == "Da Verificare" else "secondary", use_container_width=True):
                     st.session_state.selected_record_id = r['id']
                     st.session_state.page = "editor"
                     st.rerun()
 
 elif st.session_state.page == "editor":
-    st.title("🔍 Revisione Prescrizione (Split-View)")
+    st.title("🔍 Revisione Testo OCR")
     
     record_id = st.session_state.selected_record_id
     records = db.get_all_prescriptions()
@@ -223,32 +189,19 @@ elif st.session_state.page == "editor":
             st.session_state.page = "dashboard"
             st.rerun()
     else:
-        # Carica il JSON modificabile (se già verificato, usa quello verificato, altrimenti originale)
-        data_dict = json.loads(record["verified_data_json"])
+        markdown_text = record["verified_data_json"] if record["verified_data_json"] else ""
         
         c_left, c_right = st.columns([1, 1])
         
         with c_left:
-            st.subheader("Dati Estratti (Modificabili)")
-            form_data = {}
+            st.subheader("Testo Estratto (Modificabile)")
             with st.form(key="validation_form"):
-                for key, val in data_dict.items():
-                    # Handle booleans and strings
-                    if isinstance(val, bool):
-                        form_data[key] = st.selectbox(key, [True, False], index=0 if val else 1)
-                    else:
-                        form_data[key] = st.text_input(key, value=str(val) if val is not None else "")
-                        
+                edited_markdown = st.text_area("Markdown GLM-OCR", value=markdown_text, height=600)
                 submit_btn = st.form_submit_button("✅ Salva e Approva", type="primary", use_container_width=True)
                 
             if submit_btn:
-                # Ripuliamo null string e typecasting basic
-                for k, v in form_data.items():
-                    if v == "" or v == "None":
-                        form_data[k] = None
-                        
-                db.update_verification(record_id, form_data)
-                st.success("Record aggiornato e approvato nel Database Locale!")
+                db.update_verification(record_id, edited_markdown)
+                st.success("Testo aggiornato e approvato nel Database Locale!")
                 time.sleep(1)
                 st.session_state.page = "dashboard"
                 st.rerun()

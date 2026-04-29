@@ -1,5 +1,4 @@
 import sqlite3
-import json
 from pathlib import Path
 from datetime import datetime
 
@@ -15,6 +14,8 @@ class DatabaseManager:
     def _init_db(self):
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            # Manteniamo i nomi delle colonne invariati per non spaccare vecchi DB se l'utente non lo cancella,
+            # ma salveremo stringhe Markdown al posto di JSON.
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS prescriptions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,48 +24,41 @@ class DatabaseManager:
                     barcode TEXT,
                     page INTEGER,
                     mean_ocr_confidence REAL,
-                    ocr_data_json TEXT, -- L'output originale dell'LLM (JSON)
-                    verified_data_json TEXT, -- I dati confermati o modificati dall'operatore (JSON)
-                    image_path TEXT, -- Il percorso del PNG generato da docTR/pipeline
-                    status TEXT -- "Da Verificare", "Approvato"
+                    ocr_data_json TEXT, -- Ora conterrà il Markdown grezzo
+                    verified_data_json TEXT, -- Ora conterrà il Markdown verificato dall'operatore
+                    image_path TEXT,
+                    status TEXT
                 )
             ''')
             conn.commit()
 
-    def insert_prescription(self, original_file, barcode, page, confidence, ocr_data, image_path):
-        """Inserisce una nuova prescrizione processata nel DB"""
+    def insert_prescription(self, original_file, barcode, page, confidence, ocr_markdown, image_path):
         with self._get_connection() as conn:
             cursor = conn.cursor()
             now = datetime.now().isoformat()
-            
-            # Trasformo il dict in JSON string
-            ocr_data_str = json.dumps(ocr_data, ensure_ascii=False)
             
             cursor.execute('''
                 INSERT INTO prescriptions 
                 (created_at, original_file, barcode, page, mean_ocr_confidence, ocr_data_json, verified_data_json, image_path, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (now, original_file, barcode, page, confidence, ocr_data_str, ocr_data_str, image_path, "Da Verificare"))
+            ''', (now, original_file, barcode, page, confidence, ocr_markdown, ocr_markdown, image_path, "Da Verificare"))
             
             conn.commit()
             return cursor.lastrowid
 
     def get_all_prescriptions(self):
-        """Ottiene tutte le ricette dal DB con i loro stati"""
         with self._get_connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute('SELECT * FROM prescriptions ORDER BY created_at DESC')
             return [dict(row) for row in cursor.fetchall()]
 
-    def update_verification(self, pres_id, verified_data_dict):
-        """Aggiorna la ricetta definendola Approvata e salvando i dati editati."""
+    def update_verification(self, pres_id, verified_markdown):
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            verified_data_str = json.dumps(verified_data_dict, ensure_ascii=False)
             cursor.execute('''
                 UPDATE prescriptions 
                 SET verified_data_json = ?, status = ?
                 WHERE id = ?
-            ''', (verified_data_str, "Approvato", pres_id))
+            ''', (verified_markdown, "Approvato", pres_id))
             conn.commit()

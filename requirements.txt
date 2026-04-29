@@ -8,6 +8,7 @@ matplotlib
 defusedxml
 deskew
 pypdf
+pymupdf
 pyzbar
 requests
 streamlit
